@@ -15,22 +15,15 @@ from typing import Iterable, Tuple
 Grid = Tuple[Tuple[int, ...], ...]
 
 
-def count_live_neighbors(grid: Grid, row: int, col: int) -> int:
-    """Count live neighbors for cell (row, col) without mutating state."""
-    rows = len(grid)
-    cols = len(grid[0]) if rows else 0
-    offsets = (
-        (-1, -1), (-1, 0), (-1, 1),
-        (0, -1),          (0, 1),
-        (1, -1),  (1, 0), (1, 1),
+def count_live_neighbors(grid, r, c):
+    offsets = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
+    rows, cols = len(grid), len(grid[0])
+    return sum(
+        grid[r+dr][c+dc]
+        for dr, dc in offsets
+        if 0 <= r+dr < rows and 0 <= c+dc < cols
     )
 
-    total = 0
-    for dr, dc in offsets:
-        rr, cc = row + dr, col + dc
-        if 0 <= rr < rows and 0 <= cc < cols:
-            total += grid[rr][cc]
-    return total
 
 
 def step(grid: Grid) -> Grid:
