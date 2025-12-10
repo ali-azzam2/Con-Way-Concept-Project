@@ -1,7 +1,9 @@
 from __future__ import annotations
-
 """
-Pure functional implementation of Conway's Game of Life.
+Pure functional implementation of Conway's Game of Life
+with pattern matching, Immutability, Pure functions,
+Higher-order functions,Declarative style, No side effects, no mutation, no global changes, 
+Composition, Local closures.
 
 Grid representation:
 - A grid is a tuple of tuple integers (0 = dead, 1 = alive).
@@ -18,17 +20,11 @@ def count_live_neighbors(grid: Grid, row: int, col: int) -> int:
     rows = len(grid)
     cols = len(grid[0]) if rows else 0
     offsets = (
-        (-1, -1),
-        (-1, 0),
-        (-1, 1),
-        (0, -1),
-        (0, 1),
-        (1, -1),
-        (1, 0),
-        (1, 1),
+        (-1, -1), (-1, 0), (-1, 1),
+        (0, -1),          (0, 1),
+        (1, -1),  (1, 0), (1, 1),
     )
 
-    # Avoid walrus side effects for clarity. Pure computation.
     total = 0
     for dr, dc in offsets:
         rr, cc = row + dr, col + dc
@@ -45,13 +41,25 @@ def step(grid: Grid) -> Grid:
 
     def next_cell(r: int, c: int) -> int:
         live_neighbors = count_live_neighbors(grid, r, c)
-        if grid[r][c] == 1:
-            return 1 if live_neighbors in (2, 3) else 0
-        return 1 if live_neighbors == 3 else 0
+        cell = grid[r][c]
+
+        # ================================================
+        # Pattern Matching for Game of Life rules
+        # ================================================
+        match (cell, live_neighbors):
+            case (1, n) if n in (2, 3):
+                return 1   # Survival
+            case (1, _):
+                return 0   # Overpopulation or loneliness
+            case (0, 3):
+                return 1   # Reproduction
+            case _:
+                return 0   # Remain dead
 
     # Return a brand new immutable grid
     return tuple(
-        tuple(next_cell(r, c) for c in range(cols)) for r in range(rows)
+        tuple(next_cell(r, c) for c in range(cols))
+        for r in range(rows)
     )
 
 
@@ -62,25 +70,35 @@ def from_strings(lines: Iterable[str]) -> Grid:
     Accepted alive markers: "1", "#", "*", "X".
     Anything else is treated as dead.
     """
-    mapping = {"1", "#", "*", "X"}
 
-    # Convert each row into immutable tuple of 0/1
+    # Pattern matching for character-to-cell mapping
+    def char_to_cell(ch: str) -> int:
+        match ch:
+            case "1" | "#" | "*" | "X":
+                return 1
+            case _:
+                return 0
+
     grid = tuple(
-        tuple(1 if ch in mapping else 0 for ch in line.strip())
+        tuple(char_to_cell(ch) for ch in line.strip())
         for line in lines
-        if line.strip()  # ignore empty lines completely
+        if line.strip()
     )
 
-    # Validate structure: non-empty and equally sized rows
-    if not grid:
-        raise ValueError("Grid cannot be empty.")
-    if any(len(row) != len(grid[0]) for row in grid):
-        raise ValueError("All input rows must have the same length.")
+    # Pattern matching for grid validation
+    match grid:
+        case ():
+            raise ValueError("Grid cannot be empty.")
+        case (first_row, *rest):
+            if any(len(row) != len(first_row) for row in rest):
+                raise ValueError("All input rows must have the same length.")
 
     return grid
 
 
 def to_strings(grid: Grid) -> Tuple[str, ...]:
     """Convert a grid back to strings of 0/1 for easy display."""
-    return tuple("".join("1" if cell else "0" for cell in row) for row in grid)
-
+    return tuple(
+        "".join("1" if cell else "0" for cell in row)
+        for row in grid
+    )
