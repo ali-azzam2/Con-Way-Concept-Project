@@ -1,18 +1,11 @@
 from __future__ import annotations
 """
-Pure functional implementation of Conway's Game of Life
-using:
-- Higher-order functions
-- Pattern matching
-- Immutability
-- Declarative transformations
-- No side effects
-- No mutation
-- Functional composition
+Recursive functional implementation of Conway's Game of Life.
 
-Grid representation:
-A grid is a tuple of tuple integers (0=dead, 1=alive).
-Each step returns a NEW grid.
+- Uses recursion to build the next grid
+- Higher-order functions for neighbor counting
+- Pattern matching for rules
+- Immutable tuples
 """
 
 from typing import Tuple, Callable
@@ -20,14 +13,13 @@ from typing import Tuple, Callable
 Grid = Tuple[Tuple[int, ...], ...]
 
 
-# -----------------------------------------------------
-# Higher-order neighbor counter: injects grid, returns function
-# -----------------------------------------------------
+# -------------------------
+# Neighbor counter HOF
+# -------------------------
 def make_neighbor_counter(grid: Grid) -> Callable[[int, int], int]:
     offsets = [(-1,-1),(-1,0),(-1,1), (0,-1),(0,1), (1,-1),(1,0),(1,1)]
     rows, cols = len(grid), len(grid[0])
 
-    # HOF: returns a function that counts neighbors for (r, c)
     def count(r: int, c: int) -> int:
         return sum(
             grid[r+dr][c+dc]
@@ -38,18 +30,15 @@ def make_neighbor_counter(grid: Grid) -> Callable[[int, int], int]:
     return count
 
 
-# -----------------------------------------------------
-# Higher-order next-cell rule generator
-# -----------------------------------------------------
+# -------------------------
+# Next-cell HOF
+# -------------------------
 def make_next_cell(grid: Grid) -> Callable[[int, int], int]:
     count_neighbors = make_neighbor_counter(grid)
 
-    # HOF: next_cell is returned and used functionally
     def next_cell(r: int, c: int) -> int:
-        live_neighbors = count_neighbors(r, c)
         cell = grid[r][c]
-
-        # Pattern matching rules
+        live_neighbors = count_neighbors(r, c)
         match (cell, live_neighbors):
             case (1, n) if n in (2, 3):
                 return 1
@@ -63,20 +52,30 @@ def make_next_cell(grid: Grid) -> Callable[[int, int], int]:
     return next_cell
 
 
-# -----------------------------------------------------
-# Step using PURE higher-order functional mapping
-# -----------------------------------------------------
+# -------------------------
+# Recursive step helpers
+# -------------------------
+def step_row(next_cell: Callable[[int,int],int], r: int, c: int, cols: int) -> Tuple[int, ...]:
+    """Recursively build one row."""
+    if c >= cols:
+        return ()
+    return (next_cell(r, c),) + step_row(next_cell, r, c+1, cols)
+
+
+def step_grid(next_cell: Callable[[int,int],int], r: int, rows: int, cols: int) -> Grid:
+    """Recursively build the whole grid."""
+    if r >= rows:
+        return ()
+    return (step_row(next_cell, r, 0, cols),) + step_grid(next_cell, r+1, rows, cols)
+
+
+# -------------------------
+# Step function (recursive)
+# -------------------------
 def step(grid: Grid) -> Grid:
-    """Return next generation using higher-order functional mapping."""
+    """Return next generation recursively."""
     if not grid:
         return ()
-
     rows, cols = len(grid), len(grid[0])
     next_cell = make_next_cell(grid)
-
-    # NO loops -> map-of-map functional construction
-    return tuple(
-        tuple(next_cell(r, c) for c in range(cols))
-        for r in range(rows)
-    )
-
+    return step_grid(next_cell, 0, rows, cols)
