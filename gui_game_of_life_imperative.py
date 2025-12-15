@@ -1,24 +1,30 @@
 from __future__ import annotations
 
 """
-Tkinter GUI for Conway's Game of Life using the imperative engine.
-
-Controls:
-- Start / Pause: run or halt the simulation loop.
-- Step: advance one generation.
-- Randomize: fill the grid with random live/dead cells.
-- Clear: empty the grid.
-- Speed: adjust delay between generations in milliseconds.
+Tkinter GUI for the IMPERATIVE Game of Life.
+State is stored in mutable lists.
+Each update directly replaces the grid with a new list-of-lists.
 """
 
 import random
 import tkinter as tk
 from typing import List, Optional
 
-from imperative_game_of_life import GameOfLifeMutable
+import imperative_game_of_life as imperative
 
 
-class GameOfLifeGUI:
+Grid = List[List[int]]
+
+
+def empty_grid(rows: int, cols: int) -> Grid:
+    return [[0 for _ in range(cols)] for _ in range(rows)]
+
+
+def random_grid(rows: int, cols: int) -> Grid:
+    return [[random.randint(0, 1) for _ in range(cols)] for _ in range(rows)]
+
+
+class GameOfLifeImperativeGUI:
     def __init__(self, rows: int = 25, cols: int = 35, cell_size: int = 20):
         self.rows = rows
         self.cols = cols
@@ -26,6 +32,7 @@ class GameOfLifeGUI:
         self.running = False
         self.after_id: Optional[str] = None
         self.generation = 0
+        self.grid: Grid = empty_grid(rows, cols)
 
         self.root = tk.Tk()
         self.root.title("Conway's Game of Life (Imperative GUI)")
@@ -40,20 +47,11 @@ class GameOfLifeGUI:
         controls = tk.Frame(self.root)
         controls.pack(side=tk.TOP, pady=5)
 
-        self.start_btn = tk.Button(controls, text="Start", command=self.start)
-        self.start_btn.pack(side=tk.LEFT, padx=5)
-
-        self.pause_btn = tk.Button(controls, text="Pause", command=self.pause)
-        self.pause_btn.pack(side=tk.LEFT, padx=5)
-
-        self.step_btn = tk.Button(controls, text="Step", command=self.step_once)
-        self.step_btn.pack(side=tk.LEFT, padx=5)
-
-        self.random_btn = tk.Button(controls, text="Randomize", command=self.randomize)
-        self.random_btn.pack(side=tk.LEFT, padx=5)
-
-        self.clear_btn = tk.Button(controls, text="Clear", command=self.clear)
-        self.clear_btn.pack(side=tk.LEFT, padx=5)
+        tk.Button(controls, text="Start", command=self.start).pack(side=tk.LEFT, padx=5)
+        tk.Button(controls, text="Pause", command=self.pause).pack(side=tk.LEFT, padx=5)
+        tk.Button(controls, text="Step", command=self.step_once).pack(side=tk.LEFT, padx=5)
+        tk.Button(controls, text="Randomize", command=self.randomize).pack(side=tk.LEFT, padx=5)
+        tk.Button(controls, text="Clear", command=self.clear).pack(side=tk.LEFT, padx=5)
 
         tk.Label(controls, text="Speed (ms)").pack(side=tk.LEFT, padx=5)
         self.speed_scale = tk.Scale(
@@ -63,21 +61,19 @@ class GameOfLifeGUI:
         self.speed_scale.pack(side=tk.LEFT)
 
         self.status_var = tk.StringVar(value="Generation: 0")
-        self.status_label = tk.Label(self.root, textvariable=self.status_var)
-        self.status_label.pack(side=tk.TOP, pady=5)
+        tk.Label(self.root, textvariable=self.status_var).pack(side=tk.TOP, pady=5)
 
-        self.game = GameOfLifeMutable(self._make_empty_grid())
         self.rects = self._create_rectangles()
         self.canvas.bind("<Button-1>", self.toggle_cell)
         self._refresh_canvas()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    def _make_empty_grid(self) -> List[List[int]]:
-        return [[0 for _ in range(self.cols)] for _ in range(self.rows)]
-
+    # -----------------------------
+    # Canvas setup
+    # -----------------------------
     def _create_rectangles(self):
-        rects: List[List[int]] = []
+        rects = []
         for r in range(self.rows):
             row_rects = []
             for c in range(self.cols):
@@ -85,6 +81,7 @@ class GameOfLifeGUI:
                 y1 = r * self.cell_size
                 x2 = x1 + self.cell_size
                 y2 = y1 + self.cell_size
+
                 rect = self.canvas.create_rectangle(
                     x1, y1, x2, y2, outline="#ddd", fill="white"
                 )
@@ -95,17 +92,24 @@ class GameOfLifeGUI:
     def _refresh_canvas(self):
         for r in range(self.rows):
             for c in range(self.cols):
-                color = "#111" if self.game.grid[r][c] else "white"
+                color = "#111" if self.grid[r][c] else "white"
                 self.canvas.itemconfig(self.rects[r][c], fill=color)
         self.status_var.set(f"Generation: {self.generation}")
 
+    # -----------------------------
+    # Mouse interaction
+    # -----------------------------
     def toggle_cell(self, event):
         col = event.x // self.cell_size
         row = event.y // self.cell_size
+
         if 0 <= row < self.rows and 0 <= col < self.cols:
-            self.game.grid[row][col] = 0 if self.game.grid[row][col] else 1
+            self.grid[row][col] = 1 - self.grid[row][col]
             self._refresh_canvas()
 
+    # -----------------------------
+    # Control buttons
+    # -----------------------------
     def start(self):
         if self.running:
             return
@@ -132,20 +136,19 @@ class GameOfLifeGUI:
         self.after_id = self.root.after(delay, self._loop)
 
     def _advance(self):
-        self.game.step()
+        self.grid = imperative.step(self.grid)
         self.generation += 1
         self._refresh_canvas()
 
     def randomize(self):
         self.pause()
-        grid = [[random.randint(0, 1) for _ in range(self.cols)] for _ in range(self.rows)]
-        self.game = GameOfLifeMutable(grid)
+        self.grid = random_grid(self.rows, self.cols)
         self.generation = 0
         self._refresh_canvas()
 
     def clear(self):
         self.pause()
-        self.game = GameOfLifeMutable(self._make_empty_grid())
+        self.grid = empty_grid(self.rows, self.cols)
         self.generation = 0
         self._refresh_canvas()
 
@@ -158,5 +161,4 @@ class GameOfLifeGUI:
 
 
 if __name__ == "__main__":
-    GameOfLifeGUI().run()
-
+    GameOfLifeImperativeGUI().run()
